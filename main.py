@@ -8,6 +8,21 @@ DEFAULT_WAN_LINKS = "3"
 data = []
 
 
+def ipv4_to_int(octets):
+    return (octets[0] << 24) + (octets[1] << 16) + (octets[2] << 8) + octets[3]
+
+
+def int_to_ipv4(num):
+    return [(num >> 24) & 255, (num >> 16) & 255, (num >> 8) & 255, num & 255]
+
+
+def shift_ipv4(ip, num_devices):
+    ip_int = ipv4_to_int(ip)
+    shifted_ip_int = ip_int + num_devices
+    shifted_ip = int_to_ipv4(shifted_ip_int)
+    return shifted_ip
+
+
 def cidr_to_subnet_mask(cidr):
     subnet_mask = cidr * "1" + (32 - cidr) * "0"
     subnet_mask = [
@@ -49,51 +64,35 @@ ip = str_to_ipv4(ip)
 subnet_requirement = get_hosts(subnet_requirement)
 
 computed_subnet_size = [2 ** (math.floor(math.log2(i)) + 1) for i in subnet_requirement]
-
 print(f"\nSubnetting {network} for hosts - {computed_subnet_size}")
 
-cnt = 0
 new_ip = ip[::]
-for i in computed_subnet_size:
-    H = round(math.log2(i))
-    new_cidr = 32 - H
-    cnt += 1
+for i, size in enumerate(computed_subnet_size):
+    new_cidr = 32 - round(math.log2(size))
     network_addr = f"{ipv4_to_str(new_ip)}/{new_cidr}"
 
-    new_ip[-1] += i
-    for j in range(-1, -4, -1):
-        while new_ip[j] > 255:
-            new_ip[j] -= 255
-            new_ip[j - 1] += 1
+    new_ip = shift_ipv4(new_ip, size)
 
     data.append(
         [
             network_addr,
             cidr_to_subnet_mask(new_cidr),
-            f"{i - 2} hosts",
-            f"LAN{cnt}",
+            f"{size - 2} hosts",
+            f"LAN{i + 1}",
             ipv4_to_str(new_ip),
         ]
     )
 
-cnt = 0
 for i in range(wan_links):
     new_cidr = 32 - 2
-    cnt += 1
-    network_addr = f"{ipv4_to_str(new_ip)}/{new_cidr}"
-
-    new_ip[-1] += 4
-    for j in range(-1, -4, -1):
-        while new_ip[j] > 255:
-            new_ip[j] -= 255
-            new_ip[j - 1] += 1
+    new_ip = shift_ipv4(new_ip, 4)
 
     data.append(
         [
-            network_addr,
+            f"{ipv4_to_str(new_ip)}/{new_cidr}",
             cidr_to_subnet_mask(new_cidr),
             "2 hosts",
-            f"WAN link{cnt}",
+            f"WAN link{i + 1}",
             ipv4_to_str(new_ip),
         ]
     )
