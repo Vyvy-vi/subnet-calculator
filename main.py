@@ -1,28 +1,19 @@
 import math
-from table2ascii import table2ascii, Alignment, PresetStyle
+import sys
+import argparse
 from config import defaults
+from enum import Enum
 from utils import *
 
-def cidr_to_subnet_mask(cidr):
-    subnet_mask = cidr * "1" + (32 - cidr) * "0"
-    subnet_mask = int_to_ipv4(int(subnet_mask, 2))
-    return ipv4_to_str(subnet_mask)
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        sys.stderr.write("Error: %s\n" % message)
+        self.print_help()
+        sys.exit(2)
 
 
-network = (
-    input(f"Enter network with CIDR ({defaults.AVAILABLE_SUBNET}): ")
-    or defaults.AVAILABLE_SUBNET
-)
-subnet_requirement = (
-    input(f"Enter no. of hosts for each subnet (eg: {defaults.HOSTS}): ")
-    or defaults.HOSTS
-)
-wan_links = int(
-    (input(f"Enter no. of WAN links (eg: {defaults.WAN_LINKS}): ") or defaults.WAN_LINKS)
-)
-
-
-def calculate_subnets(network, subnet_requirement, wan_links):
+def calculate_subnets(network, subnet_requirement, wan_links, flsm):
     data = []
     ip, default_mask = network.split("/")
     default_mask = int(default_mask)
@@ -33,7 +24,13 @@ def calculate_subnets(network, subnet_requirement, wan_links):
         2 ** (math.floor(math.log2(i)) + 1) for i in subnet_requirement
     ]
 
-    print(f"\nSubnetting {network} for hosts - {computed_subnet_size}")
+    if flsm:
+        max_size = max(computed_subnet_size)
+        computed_subnet_size = [max_size for i in computed_subnet_size]
+
+    print(
+        f"\n{'FLSM' if flsm else 'VLSM'} Subnetting {network} for hosts - {computed_subnet_size}"
+    )
 
     new_ip = ip[::]
     for i, size in enumerate(computed_subnet_size):
@@ -69,19 +66,47 @@ def calculate_subnets(network, subnet_requirement, wan_links):
     return data
 
 
-def print_table(data):
-    output = table2ascii(
-        header=[
-            "Network Address",
-            "Subnet Mask",
-            "Usable Hosts",
-            "Type",
-            "Broadcast Address",
-        ],
-        body=data,
-        style=PresetStyle.ascii_box,
+if __name__ == "__main__":
+    parser = Parser(description="Perform IP subnetting")
+    parser.add_argument(
+        "network",
+        metavar="ip",
+        type=str,
+        nargs="?",
+        help=f"Network IP with CIDR that needs to be subnetted (eg: {defaults.AVAILABLE_SUBNET}).",
     )
-    print(output)
+    parser.add_argument(
+        "subnet_requirement",
+        metavar="hosts",
+        type=str,
+        nargs="*",
+        help=f"Number of hosts required for subnets (eg: {' '.join(defaults.HOSTS)}).",
+    )
+    parser.add_argument(
+        "--wan_links",
+        "-w",
+        metavar="wan",
+        type=int,
+        nargs="?",
+        default=defaults.WAN_LINKS,
+        help=f"Number of hosts required for subnets (eg: {defaults.WAN_LINKS}).",
+    )
+    parser.add_argument(
+        "--flsm",
+        "-f",
+        action="store_true",
+        help="VLSM is used by default. Use this flag for FLSM subnetting. ",
+    )
 
+    if len(sys.argv) < 3:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
-print_table(calculate_subnets(network, subnet_requirement, wan_links))
+    args = parser.parse_args()
+    print(args)
+
+    print_table(
+        calculate_subnets(
+            args.network, args.subnet_requirement, args.wan_links, args.flsm
+        )
+    )
