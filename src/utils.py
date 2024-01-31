@@ -1,4 +1,4 @@
-from table2ascii import table2ascii, Alignment, PresetStyle
+from table2ascii import table2ascii, PresetStyle
 
 
 def ipv4_to_int(octets):

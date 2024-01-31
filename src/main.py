@@ -1,9 +1,8 @@
 import math
 import sys
 import argparse
-from config import defaults
-from enum import Enum
-from utils import *
+from src.config import defaults
+from src.utils import *
 
 
 class Parser(argparse.ArgumentParser):

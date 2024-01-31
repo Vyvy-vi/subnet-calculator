@@ -1,0 +1,6 @@
+- Set up pytest
+- Add unit tests
+- Support distribution of whole address space
+- Overflow prevention
+- Refactor code
+- More detailed README
